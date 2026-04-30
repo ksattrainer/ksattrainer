@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+  <title>수만훈 - 수능만점훈련소</title>
+
+  <!-- PWA 매니페스트 연결 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#427A43">
+
+  <!-- iOS 대응 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="수만훈">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- 일반 favicon -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+      background: #F5EBD7;
+      color: #333;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 20px;
+      text-align: center;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 25px;
+      border-radius: 22px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .title {
+      font-size: 26px;
+      font-weight: bold;
+      color: #427A43;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 40px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(66, 122, 67, 0.2);
+      border-top-color: #427A43;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+      font-size: 13px;
+      color: #888;
+    }
+    .install-banner {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      background: white;
+      border: 2px solid #427A43;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      z-index: 100;
+    }
+    .install-banner.active { display: block; }
+    .install-banner-title {
+      font-weight: bold;
+      color: #427A43;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+    .install-banner-desc {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .install-btn {
+      background: #427A43;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .install-btn-close {
+      background: #eee;
+      color: #666;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="icon-512.png" alt="수만훈 로고" class="logo">
+    <div class="title">수만훈</div>
+    <div class="subtitle">수능만점훈련소</div>
+    <div class="spinner"></div>
+    <div class="loading-text">불러오는 중...</div>
+  </div>
+
+  <!-- 설치 안내 배너 (자동 설치 팝업이 안 뜨는 환경에서 폴백) -->
+  <div id="installBanner" class="install-banner">
+    <div class="install-banner-title">📱 홈 화면에 앱처럼 추가하기</div>
+    <div class="install-banner-desc">
+      앱 아이콘을 홈 화면에 추가하면<br>
+      매번 더 쉽게 접속할 수 있어요!
+    </div>
+    <button class="install-btn" id="installBtn">설치하기</button>
+    <button class="install-btn-close" onclick="closeInstallBanner()">나중에</button>
+  </div>
+
+  <script>
+    // ====== 설정 ======
+    const TARGET_URL = 'https://script.google.com/macros/s/AKfycbywNBUxb0LzI58HYVbCXUn0oQTPXrs8lT_RIxdMus-mYJ1sZq41d94YvpT2e_PEFzTXjQ/exec';
+
+    // ====== Service Worker 등록 (PWA 핵심) ======
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(reg => console.log('[PWA] Service Worker 등록 완료'))
+          .catch(err => console.warn('[PWA] Service Worker 등록 실패', err));
+      });
+    }
+
+    // ====== 설치 가능 이벤트 감지 (Android Chrome) ======
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // 첫 방문 시에만 배너 표시
+      if (!localStorage.getItem('installPromptShown')) {
+        setTimeout(() => {
+          document.getElementById('installBanner').classList.add('active');
+        }, 1500);
+      }
+    });
+
+    document.getElementById('installBtn').addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        closeInstallBanner();
+        return;
+      }
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log('[PWA] 사용자 선택:', outcome);
+      deferredPrompt = null;
+      localStorage.setItem('installPromptShown', '1');
+      document.getElementById('installBanner').classList.remove('active');
+    });
+
+    function closeInstallBanner() {
+      localStorage.setItem('installPromptShown', '1');
+      document.getElementById('installBanner').classList.remove('active');
+    }
+
+    // ====== 설치된 PWA에서 열린 경우 → 학원 사이트로 자동 이동 ======
+    // 일반 브라우저에서 들어온 경우엔 머무르며 "홈 화면 추가" 안내
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches
+          || window.navigator.standalone === true;
+    }
+
+    // 설치된 앱으로 열렸으면 즉시 학원 사이트로 이동
+    // 일반 브라우저로 열렸으면 짧게 머문 후 이동 (설치 유도 시간)
+    if (isStandalone()) {
+      // 앱으로 실행 → 즉시 이동
+      window.location.replace(TARGET_URL);
+    } else {
+      // 브라우저로 실행 → 1.5초 후 이동 (그동안 설치 배너 보일 시간)
+      setTimeout(() => {
+        // 설치 배너가 떠있으면 사용자가 결정할 때까지 대기
+        if (!document.getElementById('installBanner').classList.contains('active')) {
+          window.location.replace(TARGET_URL);
+        }
+      }, 1500);
+    }
+
+    // 설치 배너에서 "나중에"나 "설치하기" 누른 후엔 학원 사이트로 이동
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById('installBanner').classList.contains('active')
+          && localStorage.getItem('installPromptShown') === '1') {
+        setTimeout(() => window.location.replace(TARGET_URL), 500);
+      }
+    });
+    observer.observe(document.getElementById('installBanner'), { attributes: true });
+  </script>
+</body>
+</html>
