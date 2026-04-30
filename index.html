@@ -151,11 +151,25 @@
           || window.navigator.standalone === true;
     }
 
+    // ✅ PWA 설치 이력 추적: 한 번이라도 설치한 적 있는 사용자는 자동 이동
+    // - standalone 모드로 열린 적 있으면 localStorage에 표시
+    // - 또는 설치 이벤트(appinstalled)가 발생하면 표시
     if (isStandalone()) {
-      // 이미 PWA로 설치된 상태에서 실행 → 즉시 학원 사이트로 이동
+      localStorage.setItem('hasInstalled', '1');
+    }
+
+    window.addEventListener('appinstalled', () => {
+      localStorage.setItem('hasInstalled', '1');
+      console.log('[PWA] 설치 완료 표시');
+    });
+
+    const hasInstalledBefore = localStorage.getItem('hasInstalled') === '1';
+
+    if (isStandalone() || hasInstalledBefore) {
+      // PWA로 실행 OR 이전에 설치한 이력이 있으면 → 즉시 학원 사이트로 이동
       window.location.replace(TARGET_URL);
     }
-    // 그 외에는 자동 이동 안 함. 학생이 버튼을 눌러야 함.
+    // 그 외(처음 방문하는 신규 사용자)에는 자동 이동 안 함. 학생이 버튼을 눌러야 함.
 
     // iOS 사용자 대응: 자동 설치 팝업이 안 뜨는 환경
     // 사파리이고 PWA로 실행되지 않은 경우 설치 안내 강제 표시
