@@ -89,16 +89,30 @@
     <div class="title">수만훈</div>
     <div class="subtitle">수능만점훈련소</div>
 
-    <!-- 메인 액션 영역 -->
-    <div id="actionArea" style="margin-top: 20px; width: 100%; max-width: 320px;">
-      <button id="enterBtn" class="enter-btn">📚 학원 사이트 열기</button>
-      <div id="installHint" style="display:none; margin-top: 16px; padding: 14px; background: #FFF8E1; border: 1px solid #FFCC80; border-radius: 8px; text-align: left;">
-        <div style="font-weight: bold; color: #E65100; margin-bottom: 6px; font-size: 14px;">💡 더 편하게 사용하려면?</div>
-        <div style="font-size: 13px; color: #555; line-height: 1.6;">
-          아래 <strong>"홈 화면에 추가"</strong>를 누르면<br>
+    <!-- 설치 안내 영역 -->
+    <div id="actionArea" style="margin-top: 30px; width: 100%; max-width: 320px;">
+      <div style="padding: 18px; background: #FFF8E1; border: 1px solid #FFCC80; border-radius: 12px; text-align: center;">
+        <div style="font-size: 16px; font-weight: bold; color: #E65100; margin-bottom: 8px;">📱 홈 화면에 앱처럼 추가하기</div>
+        <div style="font-size: 13px; color: #555; line-height: 1.7; margin-bottom: 14px;">
+          홈 화면에 추가하면<br>
           앱처럼 한 번에 열 수 있어요!
         </div>
-        <button id="installBtn" class="install-btn-main">📱 홈 화면에 추가하기</button>
+        <button id="installBtn" class="install-btn-main" style="display:none;">✨ 홈 화면에 추가하기</button>
+        <div id="iosGuide" style="display:none; font-size: 13px; color: #555; line-height: 1.8; text-align: left; padding: 10px; background: white; border-radius: 8px;">
+          <div style="font-weight: bold; color: #E65100; margin-bottom: 6px;">아이폰에서 추가하려면</div>
+          1. 하단 <strong>공유 버튼</strong> <span style="display:inline-block; padding:1px 6px; background:#eee; border-radius:4px;">⬆️</span> 탭<br>
+          2. <strong>"홈 화면에 추가"</strong> 선택<br>
+          3. <strong>"추가"</strong> 탭하면 끝!
+        </div>
+        <div id="installedMsg" style="display:none; font-size: 14px; color: #2E7D32; padding: 14px; background: white; border-radius: 8px;">
+          ✅ 설치가 완료되었어요!<br>
+          이제 홈 화면의 <strong>수만훈 아이콘</strong>을 눌러보세요.
+        </div>
+        <div id="unsupportedMsg" style="display:none; font-size: 13px; color: #666; padding: 12px; background: white; border-radius: 8px; line-height: 1.6;">
+          ⚠️ 현재 브라우저에서는 설치가 어려워요.<br><br>
+          <strong>안드로이드:</strong> 폰 기본 카메라로 QR 다시 스캔<br>
+          <strong>카톡 사용 중:</strong> 우측 상단 ⋮ → "다른 브라우저로 열기"
+        </div>
       </div>
     </div>
   </div>
@@ -107,87 +121,85 @@
     // ====== 설정 ======
     const TARGET_URL = 'https://script.google.com/macros/s/AKfycbywNBUxb0LzI58HYVbCXUn0oQTPXrs8lT_RIxdMus-mYJ1sZq41d94YvpT2e_PEFzTXjQ/exec';
 
-    // ====== Service Worker 등록 (PWA 핵심) ======
+    // ====== Service Worker 등록 ======
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('service-worker.js')
-          .then(reg => console.log('[PWA] Service Worker 등록 완료'))
+          .then(() => console.log('[PWA] Service Worker 등록 완료'))
           .catch(err => console.warn('[PWA] Service Worker 등록 실패', err));
       });
     }
 
-    // ====== 설치 가능 이벤트 감지 (Android Chrome) ======
+    // ====== 환경 감지 ======
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches
+          || window.navigator.standalone === true;
+    }
+
+    // ====== 이미 PWA로 설치된 상태에서 실행되면 → 즉시 학원 사이트로 이동 ======
+    // (홈 화면의 수만훈 아이콘으로 열린 경우만 해당)
+    if (isStandalone()) {
+      window.location.replace(TARGET_URL);
+    }
+
+    // ====== 안드로이드 Chrome 등: 설치 가능 이벤트 ======
     let deferredPrompt = null;
 
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      // 설치 안내 박스 노출
-      document.getElementById('installHint').style.display = 'block';
-      console.log('[PWA] 설치 가능 - 안내 표시');
+      // 설치 버튼 노출
+      document.getElementById('installBtn').style.display = 'block';
+      console.log('[PWA] 설치 가능');
     });
 
-    // 설치 버튼 클릭
     document.getElementById('installBtn').addEventListener('click', async () => {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       console.log('[PWA] 사용자 선택:', outcome);
       if (outcome === 'accepted') {
-        document.getElementById('installHint').style.display = 'none';
+        document.getElementById('installBtn').style.display = 'none';
+        document.getElementById('installedMsg').style.display = 'block';
       }
       deferredPrompt = null;
     });
 
-    // 학원 사이트 열기 버튼 (메인 액션)
-    document.getElementById('enterBtn').addEventListener('click', () => {
-      window.location.href = TARGET_URL;
-    });
-
-    // ====== 설치된 PWA에서 열린 경우만 → 자동 이동 ======
-    // 일반 브라우저로 열렸으면 사용자가 버튼을 직접 눌러야 함 (PWA 설치 기회 보장)
-    function isStandalone() {
-      return window.matchMedia('(display-mode: standalone)').matches
-          || window.navigator.standalone === true;
-    }
-
-    // ✅ PWA 설치 이력 추적: 한 번이라도 설치한 적 있는 사용자는 자동 이동
-    // - standalone 모드로 열린 적 있으면 localStorage에 표시
-    // - 또는 설치 이벤트(appinstalled)가 발생하면 표시
-    if (isStandalone()) {
-      localStorage.setItem('hasInstalled', '1');
-    }
-
     window.addEventListener('appinstalled', () => {
-      localStorage.setItem('hasInstalled', '1');
-      console.log('[PWA] 설치 완료 표시');
+      document.getElementById('installBtn').style.display = 'none';
+      document.getElementById('installedMsg').style.display = 'block';
     });
 
-    const hasInstalledBefore = localStorage.getItem('hasInstalled') === '1';
-
-    if (isStandalone() || hasInstalledBefore) {
-      // PWA로 실행 OR 이전에 설치한 이력이 있으면 → 즉시 학원 사이트로 이동
-      window.location.replace(TARGET_URL);
-    }
-    // 그 외(처음 방문하는 신규 사용자)에는 자동 이동 안 함. 학생이 버튼을 눌러야 함.
-
-    // iOS 사용자 대응: 자동 설치 팝업이 안 뜨는 환경
-    // 사파리이고 PWA로 실행되지 않은 경우 설치 안내 강제 표시
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    if (isIOS && isSafari && !isStandalone()) {
-      // iOS 사파리에서는 beforeinstallprompt가 발생 안 함 → 별도 안내
-      const iosHint = document.createElement('div');
-      iosHint.style.cssText = 'margin-top: 16px; padding: 14px; background: #FFF8E1; border: 1px solid #FFCC80; border-radius: 8px; text-align: left;';
-      iosHint.innerHTML = `
-        <div style="font-weight: bold; color: #E65100; margin-bottom: 6px; font-size: 14px;">💡 아이폰에서 앱처럼 사용하려면?</div>
-        <div style="font-size: 13px; color: #555; line-height: 1.7;">
-          1. 아래 <strong>공유 버튼</strong> <span style="display:inline-block; padding:2px 6px; background:#eee; border-radius:4px;">⬆️</span> 탭<br>
-          2. <strong>"홈 화면에 추가"</strong> 선택<br>
-          3. <strong>"추가"</strong> 탭하면 끝!
-        </div>
-      `;
-      document.getElementById('actionArea').appendChild(iosHint);
+    // ====== 환경별 안내 표시 ======
+    if (!isStandalone()) {
+      if (isIOS && isSafari) {
+        // iOS 사파리 → 수동 설치 안내
+        document.getElementById('iosGuide').style.display = 'block';
+      } else if (isIOS && !isSafari) {
+        // iOS인데 사파리 아님 (크롬 등) → 사파리로 열어야 함
+        document.getElementById('unsupportedMsg').innerHTML = `
+          ⚠️ 아이폰에서는 <strong>사파리</strong>로만 설치할 수 있어요.<br><br>
+          이 화면을 <strong>사파리(나침반 아이콘)</strong>에서 다시 열어주세요.
+        `;
+        document.getElementById('unsupportedMsg').style.display = 'block';
+      }
+      // 안드로이드는 beforeinstallprompt가 발생하면 자동으로 설치 버튼 표시됨
+      // 발생 안 하는 환경(카톡 인앱 브라우저 등)은 3초 후 안내 표시
+      setTimeout(() => {
+        const btn = document.getElementById('installBtn');
+        const ios = document.getElementById('iosGuide');
+        const installed = document.getElementById('installedMsg');
+        const unsupported = document.getElementById('unsupportedMsg');
+        if (btn.style.display === 'none' &&
+            ios.style.display === 'none' &&
+            installed.style.display === 'none' &&
+            unsupported.style.display === 'none') {
+          unsupported.style.display = 'block';
+        }
+      }, 3000);
     }
   </script>
 </body>
