@@ -1,7 +1,7 @@
 // 수만훈 PWA Service Worker
 // 이 파일은 PWA 설치 가능 조건을 만족시키기 위해 필요합니다.
 
-const CACHE_NAME = 'sumanhun-v4';
+const CACHE_NAME = 'sumanhun-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
