@@ -25,6 +25,8 @@
       var isStandalone = window.matchMedia('(display-mode: standalone)').matches
                       || window.navigator.standalone === true;
       if (isStandalone) {
+        // 설치 흔적 저장 (다음에 브라우저로 들어왔을 때 "이미 설치됨" 메시지 표시용)
+        try { localStorage.setItem('hasInstalled', '1'); } catch (e) {}
         window.location.replace('https://script.google.com/macros/s/AKfycbywNBUxb0LzI58HYVbCXUn0oQTPXrs8lT_RIxdMus-mYJ1sZq41d94YvpT2e_PEFzTXjQ/exec');
       }
     })();
@@ -176,12 +178,51 @@
     });
 
     window.addEventListener('appinstalled', () => {
+      localStorage.setItem('hasInstalled', '1');  // ✅ 설치 완료 흔적 저장
       document.getElementById('installBtn').style.display = 'none';
       document.getElementById('installedMsg').style.display = 'block';
     });
 
     // ====== 환경별 안내 표시 ======
     if (!isStandalone()) {
+      // ✅ 이미 설치된 PWA가 있는지 확인 (안드로이드 크롬 등에서 작동)
+      let alreadyInstalled = false;
+
+      async function checkIfInstalled() {
+        // 1) getInstalledRelatedApps API (안드로이드 크롬 지원)
+        if ('getInstalledRelatedApps' in navigator) {
+          try {
+            const apps = await navigator.getInstalledRelatedApps();
+            if (apps && apps.length > 0) return true;
+          } catch (e) {
+            console.warn('getInstalledRelatedApps 실패', e);
+          }
+        }
+        // 2) localStorage 흔적 확인 (이전에 설치 완료한 적 있음)
+        if (localStorage.getItem('hasInstalled') === '1') return true;
+        return false;
+      }
+
+      // 즉시 검사 시작
+      checkIfInstalled().then(installed => {
+        alreadyInstalled = installed;
+        if (installed) {
+          // 이미 설치된 상태 → 설치 안내 대신 "이미 설치됨" 메시지
+          showAlreadyInstalledMsg();
+        }
+      });
+
+      function showAlreadyInstalledMsg() {
+        document.getElementById('installBtn').style.display = 'none';
+        document.getElementById('iosGuide').style.display = 'none';
+        document.getElementById('unsupportedMsg').style.display = 'none';
+        document.getElementById('installedMsg').innerHTML = `
+          ✅ 이미 설치되어 있어요!<br>
+          홈 화면의 <strong>수만훈 아이콘</strong>을 눌러서 사용하세요.
+        `;
+        document.getElementById('installedMsg').style.display = 'block';
+      }
+
       if (isIOS && isSafari) {
         // iOS 사파리 → 수동 설치 안내
         document.getElementById('iosGuide').style.display = 'block';
@@ -194,8 +235,11 @@
         document.getElementById('unsupportedMsg').style.display = 'block';
       }
       // 안드로이드는 beforeinstallprompt가 발생하면 자동으로 설치 버튼 표시됨
-      // 발생 안 하는 환경(카톡 인앱 브라우저 등)은 3초 후 안내 표시
+      // 발생 안 하는 환경(이미 설치됨 / 카톡 인앱 브라우저)은 3초 후 안내 표시
       setTimeout(() => {
+        // 이미 설치된 것으로 확인되었으면 아무것도 안 함
+        if (alreadyInstalled) return;
+
         const btn = document.getElementById('installBtn');
         const ios = document.getElementById('iosGuide');
         const installed = document.getElementById('installedMsg');
